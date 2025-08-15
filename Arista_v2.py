@@ -3,7 +3,6 @@ import time
 import sys
 import argparse
 import subprocess
-import re
 
 def run_cli(command):
     """Run a single EOS CLI command and return stdout."""
@@ -11,16 +10,12 @@ def run_cli(command):
     return result.stdout
 
 def shut(interface):
-    """Shut the interface."""
-    run_cli("enable")
-    run_cli("configure terminal")
+    """Shut the interface using separate Cli calls."""
     run_cli(f"interface {interface}")
     run_cli("shutdown")
 
 def no_shut(interface):
-    """No shutdown the interface."""
-    run_cli("enable")
-    run_cli("configure terminal")
+    """No shutdown the interface using separate Cli calls."""
     run_cli(f"interface {interface}")
     run_cli("no shutdown")
 
@@ -37,24 +32,19 @@ def int_up(interface):
             return True
         time.sleep(1)
 
-def ping(ip, vrf, source="management 1"):
-    """Ping IP once in the specified VRF from the given source interface.
-       Prints full output and returns True if at least one packet is received."""
-    output = run_cli(f"ping {ip} vrf {vrf} count 1 source {source}")
+def ping(ip):
+    """Ping IP once from management1 using the current VRF."""
+    # No VRF argument needed; assumed VRF already set
+    output = run_cli(f'ping {ip} count 1 source management1')
+    
     print("----- Ping Output Start -----")
     print(output)
     print("------ Ping Output End ------")
     
-    # Parse transmitted/received packets
-    match = re.search(r"(\d+)\s+packets transmitted,\s+(\d+)\s+received", output)
-    if match:
-        transmitted = int(match.group(1))
-        received = int(match.group(2))
-        print(f"Transmitted: {transmitted}, Received: {received}")
-        return received > 0
-    else:
-        print("Ping output not recognized, marking as failure.")
-        return False
+    # Simple check: if any packets received, success
+    if "1 received" in output:
+        return True
+    return False
 
 def main():
     parser = argparse.ArgumentParser()
@@ -62,6 +52,10 @@ def main():
     parser.add_argument("ip_address", help="IP address to ping")
     parser.add_argument("vrf", help="VRF to use for ping")
     args = parser.parse_args()
+
+    # Set VRF once at the start
+    print(f"Setting CLI VRF context to {args.vrf}...")
+    run_cli(f"cli vrf {args.vrf}")
 
     cycle = 0
     try:
@@ -77,8 +71,8 @@ def main():
                 print("Waiting for interface to become connected...")
                 int_up(args.interface)
 
-                print(f"Pinging {args.ip_address} in VRF {args.vrf} from {source}...")
-                if ping(args.ip_address, args.vrf):
+                print(f"Pinging {args.ip_address} from management1...")
+                if ping(args.ip_address):
                     print("Ping successful! Repeating process...\n")
                     success = True
                     break
