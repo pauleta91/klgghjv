@@ -39,13 +39,19 @@ def int_up(interface):
 
 def ping(ip, vrf, source="Management1"):
     """Ping IP once in the specified VRF from Management1.
-       Returns True if at least one packet is received."""
+       Prints full output and returns True if at least one packet is received."""
     output = run_cli(f"ping {ip} vrf {vrf} count 1 source {source}")
-    # Use regex to reliably parse transmitted and received packets
+    # Print raw output for debugging
+    print("----- Ping Output Start -----")
+    print(output)
+    print("------ Ping Output End ------")
+    
+    # Try parsing transmitted/received packets
     match = re.search(r"(\d+)\s+packets transmitted,\s+(\d+)\s+received", output)
     if match:
         transmitted = int(match.group(1))
         received = int(match.group(2))
+        print(f"Transmitted: {transmitted}, Received: {received}")
         return received > 0
     else:
         print("Ping output not recognized, marking as failure.")
