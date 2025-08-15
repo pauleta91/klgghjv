@@ -32,11 +32,12 @@ def int_up(interface):
             return True
         time.sleep(1)
 
-def ping(ip):
-    """Ping IP once from management1 using the current VRF."""
-    # No VRF argument needed; assumed VRF already set
-    output = run_cli(f'ping {ip} count 1 source management1')
+def ping(ip, vrf):
+    """Ping IP once in the specified VRF from management1."""
+    # Enter enable mode first
+    run_cli("enable")
     
+    output = run_cli(f'ping {ip} vrf {vrf} count 1 source management1')
     print("----- Ping Output Start -----")
     print(output)
     print("------ Ping Output End ------")
@@ -53,10 +54,6 @@ def main():
     parser.add_argument("vrf", help="VRF to use for ping")
     args = parser.parse_args()
 
-    # Set VRF once at the start
-    print(f"Setting CLI VRF context to {args.vrf}...")
-    run_cli(f"cli vrf {args.vrf}")
-
     cycle = 0
     try:
         while True:
@@ -71,8 +68,8 @@ def main():
                 print("Waiting for interface to become connected...")
                 int_up(args.interface)
 
-                print(f"Pinging {args.ip_address} from management1...")
-                if ping(args.ip_address):
+                print(f"Pinging {args.ip_address} in VRF {args.vrf} from management1...")
+                if ping(args.ip_address, args.vrf):
                     print("Ping successful! Repeating process...\n")
                     success = True
                     break
