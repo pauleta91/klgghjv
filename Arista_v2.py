@@ -37,8 +37,8 @@ def int_up(interface):
 
 def ping(ip, vrf):
     """Ping IP in the specified VRF once. Returns True if successful."""
-    output = run_cli(f"ping {ip} vrf {vrf} repeat 1 timeout 1 source management1")
-    return "Success rate is 100 percent" in output
+    output = run_cli(f"ping {ip} vrf {vrf} repeat 1 source management1")
+    return "1 received" in output
 
 def main():
     parser = argparse.ArgumentParser()
