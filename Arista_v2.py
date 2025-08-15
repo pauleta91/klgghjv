@@ -33,15 +33,16 @@ def int_up(interface):
         time.sleep(1)
 
 def ping(ip, vrf):
-    """Ping IP once in the specified VRF from management1 in enable mode."""
-    # Run enable and ping in the same CLI session
-    output = run_cli(f'enable ; ping {ip} vrf {vrf} count 1 source management1')
+    """Ping IP in VRF from management1 in enable mode using multi-line CLI."""
+    commands = f"""enable
+ping {ip} vrf {vrf} count 1 source management1"""
+    
+    output = run_cli(commands)
     
     print("----- Ping Output Start -----")
     print(output)
     print("------ Ping Output End ------")
     
-    # Simple check: if any packets received, success
     if "1 received" in output:
         return True
     return False
