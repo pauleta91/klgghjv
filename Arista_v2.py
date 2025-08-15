@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import time
 import sys
 import argparse
@@ -38,7 +37,7 @@ def int_up(interface):
 
 def ping(ip, vrf):
     """Ping IP in the specified VRF once. Returns True if successful."""
-    output = run_cli(f"ping {ip} vrf {vrf} repeat 1 timeout 1")
+    output = run_cli(f"ping {ip} vrf {vrf} repeat 1 timeout 1 source management1")
     return "Success rate is 100 percent" in output
 
 def main():
