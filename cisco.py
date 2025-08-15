@@ -35,48 +35,26 @@ def get_command_executor():
     def mock_cli(command):
         print(f"MOCK Executing: '{command}'")
         if "ping" in command and "1.1.1.1" in command:
-            def get_command_executor():
-    """
-    Dynamically finds the correct function for executing CLI commands on a Nexus switch.
-    Tries multiple common methods to ensure compatibility across NX-OS versions.
-    If no method is found, this function will raise an ImportError.
-    """
-    # Method 1: from cli import cli
-    try:
-        from cli import cli
-        print("Using 'from cli import cli'")
-        return cli
-    except ImportError:
-        pass
-
-    # Method 2: from cisco.cli import cli
-    try:
-        from cisco.cli import cli
-        print("Using 'from cisco.cli import cli'")
-        return cli
-    except ImportError:
-        pass
-
-    # Method 3: from cisco import vsh
-    try:
-        from cisco import vsh
-        print("Using 'from cisco import vsh'")
-        return vsh
-    except ImportError:
-        pass
-        
-    # If no valid module was found after trying all methods, raise an error.
-    raise ImportError("Could not import a valid Cisco CLI execution function. This script must be run on a Nexus device.")
-
-# Discover the correct command executor when the script starts
-execute_command_on_switch = get_command_executor()
+            import subprocess
 
 def execute_command(command):
-    """Executes a CLI command using the discovered function and returns the output."""
+    """
+    Executes a CLI command on the Nexus switch by calling the 'vsh' executable
+    directly as a subprocess.
+    """
     print(f"Executing: {command}")
-    output = execute_command_on_switch(command)
-    time.sleep(1)  # Give the system a moment to process the command
-    return output
+    try:
+        # The working script uses subprocess to call 'vsh'. We will adopt that method.
+        # 'vsh -c <command>' is the standard way to execute a command string.
+        return subprocess.check_output(['vsh', '-c', command]).decode('utf-8')
+    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+        print(f"Error executing command with 'vsh': {e}")
+        print("This script requires the 'vsh' command to be available in the system's PATH.")
+        # We will exit if the command execution fails, as the script cannot proceed.
+        raise
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        raise
         if "show interface" in command and "status" in command:
             return "--------------------------------------------------------------------------------\nPort          Name               Status    Vlan      Duplex  Speed   Type\n--------------------------------------------------------------------------------\nEth1/1        --                 up        1         full    1G      --\n"
         return ""
