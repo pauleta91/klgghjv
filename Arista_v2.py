@@ -37,7 +37,7 @@ def int_up(interface):
             return True
         time.sleep(1)
 
-def ping(ip, vrf, source="Management1"):
+def ping(ip, vrf, source="management1"):
     """Ping IP once in the specified VRF from Management1.
        Prints full output and returns True if at least one packet is received."""
     output = run_cli(f"ping {ip} vrf {vrf} count 1 source {source}")
