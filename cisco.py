@@ -35,7 +35,48 @@ def get_command_executor():
     def mock_cli(command):
         print(f"MOCK Executing: '{command}'")
         if "ping" in command and "1.1.1.1" in command:
-            return "!!!!!\n--- 1.1.1.1 ping statistics ---\n5 packets transmitted, 5 packets received, 0.00% packet loss"
+            def get_command_executor():
+    """
+    Dynamically finds the correct function for executing CLI commands on a Nexus switch.
+    Tries multiple common methods to ensure compatibility across NX-OS versions.
+    If no method is found, this function will raise an ImportError.
+    """
+    # Method 1: from cli import cli
+    try:
+        from cli import cli
+        print("Using 'from cli import cli'")
+        return cli
+    except ImportError:
+        pass
+
+    # Method 2: from cisco.cli import cli
+    try:
+        from cisco.cli import cli
+        print("Using 'from cisco.cli import cli'")
+        return cli
+    except ImportError:
+        pass
+
+    # Method 3: from cisco import vsh
+    try:
+        from cisco import vsh
+        print("Using 'from cisco import vsh'")
+        return vsh
+    except ImportError:
+        pass
+        
+    # If no valid module was found after trying all methods, raise an error.
+    raise ImportError("Could not import a valid Cisco CLI execution function. This script must be run on a Nexus device.")
+
+# Discover the correct command executor when the script starts
+execute_command_on_switch = get_command_executor()
+
+def execute_command(command):
+    """Executes a CLI command using the discovered function and returns the output."""
+    print(f"Executing: {command}")
+    output = execute_command_on_switch(command)
+    time.sleep(1)  # Give the system a moment to process the command
+    return output
         if "show interface" in command and "status" in command:
             return "--------------------------------------------------------------------------------\nPort          Name               Status    Vlan      Duplex  Speed   Type\n--------------------------------------------------------------------------------\nEth1/1        --                 up        1         full    1G      --\n"
         return ""
