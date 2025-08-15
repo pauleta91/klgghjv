@@ -28,21 +28,18 @@ def bounce_interface(interface):
     execute_command(f"conf t ; interface {interface} ; shutdown")
     print(f"Interface {interface} is shut down.")
     execute_command(f"conf t ; interface {interface} ; no shutdown")
-    print("Interface {interface} is enabled. Waiting 3 seconds for initialization...")
+    print(f"Interface {interface} is enabled. Waiting 3 seconds for initialization...")
     time.sleep(3)
 
 def check_ping(ip_address, vrf, count=1):
     """
     Sends a number of pings to the specified IP in the given VRF.
-    Returns True if any ping is successful, False otherwise.
-    This version includes enhanced debugging output.
+    Returns True if the ping command's exit code is 0, False otherwise.
     """
     print(f"--- Pinging {ip_address} in VRF {vrf} ---")
     command = f"ping {ip_address} vrf {vrf} count {count}"
     
     try:
-        # We use subprocess.run() here instead of execute_command() to get more
-        # detailed output for debugging, including stderr and the return code.
         process = subprocess.run(['vsh', '-c', command], 
                                  capture_output=True, 
                                  text=True, 
@@ -53,12 +50,15 @@ def check_ping(ip_address, vrf, count=1):
         print(f"Return Code: {process.returncode}")
         print(f"Stdout:\n{process.stdout}")
         print(f"Stderr:\n{process.stderr}")
+        
+        # The most reliable check for success is the command's return code. 0 means success.
+        is_successful = (process.returncode == 0)
+        
+        print(f"Validation Check (return code is 0): {is_successful}")
         print("--- PING DEBUG END ---")
         # --- END DEBUGGING ---
 
-        # The most reliable check for a successful ping on Nexus is the '!' character
-        # in the standard output.
-        return "!" in process.stdout
+        return is_successful
 
     except FileNotFoundError:
         print("DEBUG ERROR: 'vsh' command not found. This script must run on a Nexus switch.")
@@ -69,7 +69,6 @@ def check_ping(ip_address, vrf, count=1):
     except Exception as e:
         print(f"DEBUG ERROR: An unexpected error occurred during ping execution: {e}")
         return False
-
 
 def verify_interface_status(interface, timeout=60):
     """
@@ -110,7 +109,7 @@ def main():
     parser.add_argument("vrf", help="The VRF name to use for the ping.")
     parser.add_argument("delay", type=int, help="The delay in seconds to wait for a successful ping.")
     
-    args = parser.parse_args()
+    args = parser.parse_args() # Corrected from parser.parse_.
 
     print("--- Starting Interface Test Script ---")
     print(f"Configuration: Interface={args.interface}, IP={args.ip_address}, VRF={args.vrf}, Delay={args.delay}s")
