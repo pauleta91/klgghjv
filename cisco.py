@@ -1,28 +1,56 @@
 
 import time
 import argparse
-try:
-    # On Cisco Nexus, the 'cisco' module provides the 'cli' function to run commands.
-    import cisco
-    # Define a consistent function name that maps to the Cisco library
-    execute_command_on_switch = cisco.cli
-except ImportError:
-    # Mock the function for local testing if the cisco module is not found
-    print("Warning: 'cisco' module not found. Using mock function for local testing.")
-    def execute_command_on_switch(command):
+def get_command_executor():
+    """
+    Dynamically finds the correct function for executing CLI commands on a Nexus switch.
+    Tries multiple common methods to ensure compatibility across NX-OS versions.
+    """
+    # Method 1: from cli import cli
+    try:
+        from cli import cli
+        print("Using 'from cli import cli'")
+        return cli
+    except ImportError:
+        pass
+
+    # Method 2: from cisco.cli import cli
+    try:
+        from cisco.cli import cli
+        print("Using 'from cisco.cli import cli'")
+        return cli
+    except ImportError:
+        pass
+
+    # Method 3: from cisco import vsh
+    try:
+        from cisco import vsh
+        print("Using 'from cisco import vsh'")
+        return vsh
+    except ImportError:
+        pass
+        
+    # Fallback for local testing
+    print("Warning: No native Cisco CLI module found. Using mock function for local testing.")
+    def mock_cli(command):
         print(f"MOCK Executing: '{command}'")
         if "ping" in command and "1.1.1.1" in command:
             return "!!!!!\n--- 1.1.1.1 ping statistics ---\n5 packets transmitted, 5 packets received, 0.00% packet loss"
         if "show interface" in command and "status" in command:
             return "--------------------------------------------------------------------------------\nPort          Name               Status    Vlan      Duplex  Speed   Type\n--------------------------------------------------------------------------------\nEth1/1        --                 up        1         full    1G      --\n"
         return ""
+    return mock_cli
+
+# Discover the correct command executor when the script starts
+execute_command_on_switch = get_command_executor()
 
 def execute_command(command):
-    """Executes a CLI command and returns the output."""
+    """Executes a CLI command using the discovered function and returns the output."""
     print(f"Executing: {command}")
     output = execute_command_on_switch(command)
     time.sleep(1)  # Give the system a moment to process the command
     return output
+
 
 
 
