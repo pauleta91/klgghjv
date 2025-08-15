@@ -37,16 +37,15 @@ def int_up(interface):
             return True
         time.sleep(1)
 
-def ping(ip, vrf, source="management1"):
-    """Ping IP once in the specified VRF from Management1.
+def ping(ip, vrf, source="management 1"):
+    """Ping IP once in the specified VRF from the given source interface.
        Prints full output and returns True if at least one packet is received."""
     output = run_cli(f"ping {ip} vrf {vrf} count 1 source {source}")
-    # Print raw output for debugging
     print("----- Ping Output Start -----")
     print(output)
     print("------ Ping Output End ------")
     
-    # Try parsing transmitted/received packets
+    # Parse transmitted/received packets
     match = re.search(r"(\d+)\s+packets transmitted,\s+(\d+)\s+received", output)
     if match:
         transmitted = int(match.group(1))
@@ -78,7 +77,7 @@ def main():
                 print("Waiting for interface to become connected...")
                 int_up(args.interface)
 
-                print(f"Pinging {args.ip_address} in VRF {args.vrf} from Management1...")
+                print(f"Pinging {args.ip_address} in VRF {args.vrf} from {source}...")
                 if ping(args.ip_address, args.vrf):
                     print("Ping successful! Repeating process...\n")
                     success = True
