@@ -20,12 +20,16 @@ def execute_command(command):
         raise
 
 def bounce_interface(interface):
-    """Performs a shutdown and no shutdown on the specified interface."""
+    """
+    Performs a shutdown and no shutdown on the specified interface, with a delay
+    to allow the interface to initialize.
+    """
     print(f"--- Bouncing interface {interface} ---")
     execute_command(f"conf t ; interface {interface} ; shutdown")
     print(f"Interface {interface} is shut down.")
     execute_command(f"conf t ; interface {interface} ; no shutdown")
-    print(f"Interface {interface} is enabled.")
+    print("Interface {interface} is enabled. Waiting 3 seconds for initialization...")
+    time.sleep(3)
 
 def check_ping(ip_address, vrf, count=1):
     """
