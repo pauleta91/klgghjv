@@ -45,34 +45,25 @@ def check_ping(ip_address, vrf, count=1):
                                  text=True, 
                                  timeout=15)
 
-        # --- PING DEBUGGING OUTPUT ---
-        print("--- PING DEBUG START ---")
-        print(f"Return Code: {process.returncode}")
-        print(f"Stdout:\n{process.stdout}")
-        print(f"Stderr:\n{process.stderr}")
-        
         # The most reliable check for success is the command's return code. 0 means success.
         is_successful = (process.returncode == 0)
         
-        print(f"Validation Check (return code is 0): {is_successful}")
-        print("--- PING DEBUG END ---")
-        # --- END DEBUGGING ---
+        if not is_successful:
+            print("--- PING DEBUG START ---")
+            print(f"Return Code: {process.returncode} (Expected 0 for success)")
+            print(f"Stdout:\n{process.stdout}")
+            print(f"Stderr:\n{process.stderr}")
+            print("--- PING DEBUG END ---")
 
         return is_successful
 
-    except FileNotFoundError:
-        print("DEBUG ERROR: 'vsh' command not found. This script must run on a Nexus switch.")
-        return False
-    except subprocess.TimeoutExpired:
-        print("DEBUG ERROR: Ping command timed out after 15 seconds.")
-        return False
     except Exception as e:
         print(f"DEBUG ERROR: An unexpected error occurred during ping execution: {e}")
         return False
 
 def verify_interface_status(interface, timeout=60):
     """
-    Verifies that the interface is in an 'up' state.
+    Verifies that the interface is in an 'up' or 'connected' state.
     Waits for the interface to come up for a specified timeout period.
     """
     print(f"--- Verifying status for interface {interface} ---")
@@ -80,20 +71,29 @@ def verify_interface_status(interface, timeout=60):
     while time.time() - start_time < timeout:
         try:
             output = execute_command(f"show interface {interface} status")
-            # A typical output line for an up interface is: 'Eth1/1  --  up  ...'
+            
+            # --- STATUS DEBUGGING ---
+            print("--- STATUS DEBUG START ---")
+            print(f"Raw 'show interface status' output:\n{output}")
+            print("--- STATUS DEBUG END ---")
+            # --- END DEBUGGING ---
+
+            # Split the output into individual lines
             for line in output.strip().split('\n'):
-                if line.startswith(interface):
+                if line.strip().startswith(interface):
                     parts = line.split()
                     if len(parts) > 2:
-                        status = parts[2]
-                        print(f"Current status of {interface}: {status}")
-                        if status == "up":
-                            print(f"SUCCESS: Interface {interface} is confirmed to be up.")
+                        # Status is usually the 3rd column (index 2)
+                        status = parts[2].lower() # Check in lowercase
+                        print(f"Found interface line. Parsed status: '{status}'")
+                        # Check for common "up" states
+                        if status in ["up", "connected"]:
+                            print(f"SUCCESS: Interface {interface} is confirmed to be {status}.")
                             return True
         except Exception as e:
             print(f"Could not verify interface status: {e}")
         
-        print("Interface is not up yet. Waiting...")
+        print("Interface state is not yet 'up' or 'connected'. Waiting...")
         time.sleep(5)
     
     print(f"ERROR: Interface {interface} did not come up within {timeout} seconds.")
@@ -109,7 +109,7 @@ def main():
     parser.add_argument("vrf", help="The VRF name to use for the ping.")
     parser.add_argument("delay", type=int, help="The delay in seconds to wait for a successful ping.")
     
-    args = parser.parse_args() # Corrected from parser.parse_.
+    args = parser.parse_args()
 
     print("--- Starting Interface Test Script ---")
     print(f"Configuration: Interface={args.interface}, IP={args.ip_address}, VRF={args.vrf}, Delay={args.delay}s")
