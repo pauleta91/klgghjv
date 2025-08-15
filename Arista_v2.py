@@ -37,17 +37,18 @@ def int_up(interface):
         time.sleep(1)
 
 def ping(ip, vrf, source="Management1"):
-    """Ping IP once in the specified VRF from a specific source interface.
+    """Ping IP once in the specified VRF from Management1.
        Returns True if at least one packet is received."""
     output = run_cli(f"ping {ip} vrf {vrf} count 1 source {source}")
     for line in output.splitlines():
         if "packets transmitted" in line:
-            parts = line.split(",")
-            transmitted = int(parts[0].split()[0])
-            received = int(parts[1].split()[0])
-            if received > 0:
-                return True
-            else:
+            try:
+                parts = line.split(",")
+                transmitted = int(parts[0].split()[0])
+                received = int(parts[1].split()[0])
+                return received > 0
+            except Exception as e:
+                print(f"Error parsing ping output: {e}")
                 return False
     return False
 
