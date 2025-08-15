@@ -1,36 +1,37 @@
-#!/usr/bin/env python3
 import time
 import sys
-from cli import cli  # EOS Python module to run CLI commands
+import subprocess
+
+def run_cli(command):
+    """Run an EOS CLI command using subprocess and return output as string."""
+    result = subprocess.run(["Cli", "-c", command], capture_output=True, text=True)
+    return result.stdout
 
 def get_user_input():
-    interface = input("Enter interface: ").strip()
+    interface = input("Enter interface (e.g., Ethernet1): ").strip()
     ip = input("Enter IP address to ping: ").strip()
     vrf = input("Enter VRF (default if none): ").strip() or "default"
     return interface, ip, vrf
 
 def flap_interface(interface):
     """Shut and no shut the interface."""
-    cli(f"enable")
-    cli(f"configure terminal")
-    cli(f"interface {interface}")
-    cli(f"shutdown")
-    cli(f"no shutdown")
+    run_cli(f"enable")
+    run_cli(f"configure terminal")
+    run_cli(f"interface {interface}")
+    run_cli(f"shutdown")
+    run_cli(f"no shutdown")
 
 def wait_until_connected(interface):
     """Poll every second until interface is connected."""
     while True:
-        output = cli(f"show interfaces {interface} | include line protocol|is up")
-        # Check for "line protocol is up" indicating connected
+        output = run_cli(f"show interfaces {interface} | include line protocol|is up")
         if "line protocol is up" in output:
             return
         time.sleep(1)
 
 def ping_ip(ip, vrf):
     """Ping the IP in the given VRF once."""
-    cmd = f"ping {ip} vrf {vrf} repeat 1 timeout 1"
-    output = cli(cmd)
-    # Success if 'Success rate is 100 percent' appears in output
+    output = run_cli(f"ping {ip} vrf {vrf} repeat 1 timeout 1")
     if "Success rate is 100 percent" in output:
         return True
     return False
