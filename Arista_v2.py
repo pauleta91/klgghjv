@@ -1,61 +1,45 @@
 #!/usr/bin/env python3
 import time
+import sys
 import argparse
 import subprocess
 
-def run_cli(commands):
-    """Run EOS CLI commands via Cli -c. Accepts multi-line string."""
-    try:
-        return subprocess.check_output(['Cli', '-c', commands], text=True)
-    except subprocess.CalledProcessError as e:
-        print(f"cmd failed: {e}")
-        return ""
-    except FileNotFoundError:
-        print("Cli not found. Make sure you are on an Arista EOS switch.")
-        raise
-
-def no_shut(interface):
-    print(f"no-shut {interface}")
-    cmds = f"""configure terminal
-interface {interface}
-no shutdown
-end"""
-    run_cli(cmds)
+def run_cli(command):
+    """Run a single EOS CLI command and return stdout."""
+    result = subprocess.run(["Cli", "-c", command], capture_output=True, text=True)
+    return result.stdout
 
 def shut(interface):
-    print(f"shut {interface}")
-    cmds = f"""configure terminal
-interface {interface}
-shutdown
-end"""
-    run_cli(cmds)
+    """Shut the interface."""
+    run_cli("enable")
+    run_cli("configure terminal")
+    run_cli(f"interface {interface}")
+    run_cli("shutdown")
+
+def no_shut(interface):
+    """No shutdown the interface."""
+    run_cli("enable")
+    run_cli("configure terminal")
+    run_cli(f"interface {interface}")
+    run_cli("no shutdown")
 
 def bounce(interface):
     """Shut and no-shut the interface."""
     shut(interface)
     no_shut(interface)
 
-def ping(ip, vrf):
-    """Ping IP once in the given VRF."""
-    cmd = f"ping {ip} vrf {vrf} repeat 1 timeout 1"
-    try:
-        output = run_cli(cmd)
-        return "Success rate is 100 percent" in output
-    except Exception as e:
-        print(f"ping failed: {e}")
-        return False
-
-def int_up(interface, timeout=60):
-    """Wait until interface is connected, polling every 1 sec up to timeout seconds."""
-    start = time.time()
-    while time.time() - start < timeout:
-        out = run_cli(f"show interfaces {interface} status")
-        for line in out.splitlines():
-            if line.startswith(interface) and len(line.split()) > 2:
-                if line.split()[2].lower() == "connected":
-                    return True
+def int_up(interface):
+    """Wait until interface shows 'line protocol is up'."""
+    while True:
+        output = run_cli(f"show interfaces {interface} | include line protocol|is up")
+        if "line protocol is up" in output:
+            return True
         time.sleep(1)
-    return False
+
+def ping(ip, vrf):
+    """Ping IP in the specified VRF once. Returns True if successful."""
+    output = run_cli(f"ping {ip} vrf {vrf} repeat 1 timeout 1")
+    return "Success rate is 100 percent" in output
 
 def main():
     parser = argparse.ArgumentParser()
@@ -68,29 +52,31 @@ def main():
     try:
         while True:
             cycle += 1
-            print(f"\n== cycle {cycle} ==")
-            bounce(args.interface)
+            print(f"\n== Cycle {cycle} ==")
+            success = False
 
-            if not int_up(args.interface):
-                print("Interface did not come up. Exiting.")
-                break
+            for attempt in range(1, 4):
+                print(f"Flap attempt {attempt}...")
+                bounce(args.interface)
 
-            for i in range(3):
+                print("Waiting for interface to become connected...")
+                int_up(args.interface)
+
+                print(f"Pinging {args.ip_address} in VRF {args.vrf}...")
                 if ping(args.ip_address, args.vrf):
-                    print("Ping succeeded")
+                    print("Ping successful! Repeating process...\n")
+                    success = True
                     break
-                print("Ping failed. Retrying...")
-                time.sleep(2)
-            else:
-                print("Ping failed 3 times. Exiting.")
-                break
+                else:
+                    print(f"Ping failed on attempt {attempt}. Retrying...")
+
+            if not success:
+                print("Ping failed after 3 attempts. Exiting script.")
+                sys.exit(1)
 
     except KeyboardInterrupt:
-        print("Interrupted by user")
-    finally:
-        if not int_up(args.interface, 2):
-            no_shut(args.interface)
-        print("Done")
+        print("Script interrupted by user. Exiting.")
+        sys.exit(0)
 
 if __name__ == "__main__":
     main()
