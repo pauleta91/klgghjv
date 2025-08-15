@@ -4,6 +4,7 @@ import argparse
 import subprocess
 
 def run_cmd(cmd):
+    """Run EOS CLI command and return output."""
     try:
         return subprocess.check_output(['Cli', '-c', cmd], text=True)
     except subprocess.CalledProcessError as e:
@@ -15,11 +16,15 @@ def run_cmd(cmd):
 
 def no_shut(interface):
     print(f"no-shut {interface}")
-    run_cmd(f"configure terminal ; interface {interface} ; no shutdown")
+    run_cmd("configure terminal")
+    run_cmd(f"interface {interface}")
+    run_cmd("no shutdown")
 
 def shut(interface):
     print(f"shut {interface}")
-    run_cmd(f"configure terminal ; interface {interface} ; shutdown")
+    run_cmd("configure terminal")
+    run_cmd(f"interface {interface}")
+    run_cmd("shutdown")
 
 def bounce(interface):
     """Shut and no-shut the interface."""
@@ -30,7 +35,6 @@ def ping(ip, vrf):
     """Ping IP once in the given VRF."""
     cmd = f"ping {ip} vrf {vrf} repeat 1 timeout 1"
     try:
-        # return True if ping succeeds (success rate 100%)
         output = run_cmd(cmd)
         return "Success rate is 100 percent" in output
     except Exception as e:
