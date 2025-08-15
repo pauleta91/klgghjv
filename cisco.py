@@ -1,41 +1,6 @@
-
 import time
 import argparse
-def get_command_executor():
-    """
-    Dynamically finds the correct function for executing CLI commands on a Nexus switch.
-    Tries multiple common methods to ensure compatibility across NX-OS versions.
-    """
-    # Method 1: from cli import cli
-    try:
-        from cli import cli
-        print("Using 'from cli import cli'")
-        return cli
-    except ImportError:
-        pass
-
-    # Method 2: from cisco.cli import cli
-    try:
-        from cisco.cli import cli
-        print("Using 'from cisco.cli import cli'")
-        return cli
-    except ImportError:
-        pass
-
-    # Method 3: from cisco import vsh
-    try:
-        from cisco import vsh
-        print("Using 'from cisco import vsh'")
-        return vsh
-    except ImportError:
-        pass
-        
-    # Fallback for local testing
-    print("Warning: No native Cisco CLI module found. Using mock function for local testing.")
-    def mock_cli(command):
-        print(f"MOCK Executing: '{command}'")
-        if "ping" in command and "1.1.1.1" in command:
-            import subprocess
+import subprocess
 
 def execute_command(command):
     """
@@ -44,34 +9,15 @@ def execute_command(command):
     """
     print(f"Executing: {command}")
     try:
-        # The working script uses subprocess to call 'vsh'. We will adopt that method.
         # 'vsh -c <command>' is the standard way to execute a command string.
         return subprocess.check_output(['vsh', '-c', command]).decode('utf-8')
     except (subprocess.CalledProcessError, FileNotFoundError) as e:
         print(f"Error executing command with 'vsh': {e}")
         print("This script requires the 'vsh' command to be available in the system's PATH.")
-        # We will exit if the command execution fails, as the script cannot proceed.
         raise
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
         raise
-        if "show interface" in command and "status" in command:
-            return "--------------------------------------------------------------------------------\nPort          Name               Status    Vlan      Duplex  Speed   Type\n--------------------------------------------------------------------------------\nEth1/1        --                 up        1         full    1G      --\n"
-        return ""
-    return mock_cli
-
-# Discover the correct command executor when the script starts
-execute_command_on_switch = get_command_executor()
-
-def execute_command(command):
-    """Executes a CLI command using the discovered function and returns the output."""
-    print(f"Executing: {command}")
-    output = execute_command_on_switch(command)
-    time.sleep(1)  # Give the system a moment to process the command
-    return output
-
-
-
 
 def bounce_interface(interface):
     """Performs a shutdown and no shutdown on the specified interface."""
@@ -87,10 +33,21 @@ def check_ping(ip_address, vrf, count=1):
     Returns True if any ping is successful, False otherwise.
     """
     print(f"--- Pinging {ip_address} in VRF {vrf} ---")
-    # On Nexus, a successful ping response typically includes '!' characters.
-    # We check for at least one successful packet.
-    output = execute_command(f"ping {ip_address} vrf {vrf} count {count}")
-    return "!" in output and "0.00% packet loss" not in output
+    command = f"ping {ip_address} vrf {vrf} count {count}"
+    try:
+        output = execute_command(command)
+        # A successful ping on a Nexus contains '!' in the output.
+        # The previous logic incorrectly checked for the ABSENCE of "0.00% packet loss".
+        return "!" in output
+    except subprocess.CalledProcessError:
+        # This exception is raised by check_output if the command returns a non-zero
+        # exit code, which a failed ping does. We catch it and return False.
+        print("Ping command failed with a non-zero exit code.")
+        return False
+    except Exception as e:
+        # Catch any other unexpected errors during the ping.
+        print(f"An unexpected error occurred during ping: {e}")
+        return False
 
 def verify_interface_status(interface, timeout=60):
     """
@@ -100,18 +57,21 @@ def verify_interface_status(interface, timeout=60):
     print(f"--- Verifying status for interface {interface} ---")
     start_time = time.time()
     while time.time() - start_time < timeout:
-        # The command 'show interface <name> status' is a reliable way to check
-        output = execute_command(f"show interface {interface} status")
-        # A typical output line for an up interface is: 'Eth1/1  --  up  ...'
-        # We split the line and check the status field.
-        for line in output.strip().split('\n'):
-            if line.startswith(interface):
-                parts = line.split()
-                status = parts[2]
-                print(f"Current status of {interface}: {status}")
-                if status == "up":
-                    print(f"SUCCESS: Interface {interface} is confirmed to be up.")
-                    return True
+        try:
+            output = execute_command(f"show interface {interface} status")
+            # A typical output line for an up interface is: 'Eth1/1  --  up  ...'
+            for line in output.strip().split('\n'):
+                if line.startswith(interface):
+                    parts = line.split()
+                    if len(parts) > 2:
+                        status = parts[2]
+                        print(f"Current status of {interface}: {status}")
+                        if status == "up":
+                            print(f"SUCCESS: Interface {interface} is confirmed to be up.")
+                            return True
+        except Exception as e:
+            print(f"Could not verify interface status: {e}")
+        
         print("Interface is not up yet. Waiting...")
         time.sleep(5)
     
