@@ -1,0 +1,82 @@
+import time
+import argparse
+import subprocess
+
+def run_cmd(cmd):
+    try:
+        return subprocess.check_output(['vsh', '-c', cmd], text=True)
+    except subprocess.CalledProcessError as e:
+        print(f"cmd failed: {e}")
+        return ""
+    except FileNotFoundError:
+        print("vsh not found. You're screwed.")
+        raise
+
+def no_shut(interface):
+    print(f"no-shut {interface}")
+    run_cmd(f"conf t ; interface {interface} ; no shutdown")
+
+def shut(interface):
+    print(f"shut {interface}")
+    run_cmd(f"conf t ; interface {interface} ; shutdown")
+
+def bounce(interface):
+    shut(interface)
+    no_shut(interface)
+
+def ping(ip, vrf):
+    cmd = f"ping {ip} vrf {vrf} count 1"
+    try:
+        return subprocess.run(['vsh', '-c', cmd], timeout=5).returncode == 0
+    except Exception as e:
+        print(f"ping fucked up: {e}")
+        return False
+
+def int_up(interface, timeout=60):
+    start = time.time()
+    while time.time() - start < timeout:
+        out = run_cmd(f"show interface {interface} status")
+        for line in out.splitlines():
+            if line.startswith(interface) and len(line.split()) > 2:
+                if line.split()[2].lower() == "connected":
+                    return True
+        time.sleep(1)
+    return False
+
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument("interface")
+    p.add_argument("ip_address")
+    p.add_argument("vrf")
+    args = p.parse_args()
+
+    cycle = 0
+    try:
+        while True:
+            cycle += 1
+            print(f"== cycle {cycle} ==")
+            bounce(args.interface)
+
+            if not int_up(args.interface):
+                print("int stayed dead. quitting.")
+                break
+
+            for i in range(3):
+                if ping(args.ip_address, args.vrf):
+                    print("ping works")
+                    break
+                print("ping failed. retrying...")
+                time.sleep(2)
+            else:
+                print("ping hopeless after 3 tries. quitting.")
+                break
+
+    except KeyboardInterrupt:
+        print("killed")
+    finally:
+        if not int_up(args.interface, 2):
+            no_shut(args.interface)
+        print("done")
+
+if __name__ == "__main__":
+    main()
