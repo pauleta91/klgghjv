@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import time
 import sys
 import argparse
@@ -35,10 +36,20 @@ def int_up(interface):
             return True
         time.sleep(1)
 
-def ping(ip, vrf):
-    """Ping IP in the specified VRF once. Returns True if successful."""
-    output = run_cli(f"ping {ip} vrf {vrf} repeat 1 source management1")
-    return "1 received" in output
+def ping(ip, vrf, source="Management1"):
+    """Ping IP once in the specified VRF from a specific source interface.
+       Returns True if at least one packet is received."""
+    output = run_cli(f"ping {ip} vrf {vrf} count 1 source {source}")
+    for line in output.splitlines():
+        if "packets transmitted" in line:
+            parts = line.split(",")
+            transmitted = int(parts[0].split()[0])
+            received = int(parts[1].split()[0])
+            if received > 0:
+                return True
+            else:
+                return False
+    return False
 
 def main():
     parser = argparse.ArgumentParser()
@@ -61,7 +72,7 @@ def main():
                 print("Waiting for interface to become connected...")
                 int_up(args.interface)
 
-                print(f"Pinging {args.ip_address} in VRF {args.vrf}...")
+                print(f"Pinging {args.ip_address} in VRF {args.vrf} from Management1...")
                 if ping(args.ip_address, args.vrf):
                     print("Ping successful! Repeating process...\n")
                     success = True
