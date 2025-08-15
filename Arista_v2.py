@@ -3,6 +3,7 @@ import time
 import sys
 import argparse
 import subprocess
+import re
 
 def run_cli(command):
     """Run a single EOS CLI command and return stdout."""
@@ -40,17 +41,15 @@ def ping(ip, vrf, source="Management1"):
     """Ping IP once in the specified VRF from Management1.
        Returns True if at least one packet is received."""
     output = run_cli(f"ping {ip} vrf {vrf} count 1 source {source}")
-    for line in output.splitlines():
-        if "packets transmitted" in line:
-            try:
-                parts = line.split(",")
-                transmitted = int(parts[0].split()[0])
-                received = int(parts[1].split()[0])
-                return received > 0
-            except Exception as e:
-                print(f"Error parsing ping output: {e}")
-                return False
-    return False
+    # Use regex to reliably parse transmitted and received packets
+    match = re.search(r"(\d+)\s+packets transmitted,\s+(\d+)\s+received", output)
+    if match:
+        transmitted = int(match.group(1))
+        received = int(match.group(2))
+        return received > 0
+    else:
+        print("Ping output not recognized, marking as failure.")
+        return False
 
 def main():
     parser = argparse.ArgumentParser()
