@@ -31,23 +31,41 @@ def check_ping(ip_address, vrf, count=1):
     """
     Sends a number of pings to the specified IP in the given VRF.
     Returns True if any ping is successful, False otherwise.
+    This version includes enhanced debugging output.
     """
     print(f"--- Pinging {ip_address} in VRF {vrf} ---")
     command = f"ping {ip_address} vrf {vrf} count {count}"
+    
     try:
-        output = execute_command(command)
-        # A successful ping on a Nexus contains '!' in the output.
-        # The previous logic incorrectly checked for the ABSENCE of "0.00% packet loss".
-        return "!" in output
-    except subprocess.CalledProcessError:
-        # This exception is raised by check_output if the command returns a non-zero
-        # exit code, which a failed ping does. We catch it and return False.
-        print("Ping command failed with a non-zero exit code.")
+        # We use subprocess.run() here instead of execute_command() to get more
+        # detailed output for debugging, including stderr and the return code.
+        process = subprocess.run(['vsh', '-c', command], 
+                                 capture_output=True, 
+                                 text=True, 
+                                 timeout=15)
+
+        # --- PING DEBUGGING OUTPUT ---
+        print("--- PING DEBUG START ---")
+        print(f"Return Code: {process.returncode}")
+        print(f"Stdout:\n{process.stdout}")
+        print(f"Stderr:\n{process.stderr}")
+        print("--- PING DEBUG END ---")
+        # --- END DEBUGGING ---
+
+        # The most reliable check for a successful ping on Nexus is the '!' character
+        # in the standard output.
+        return "!" in process.stdout
+
+    except FileNotFoundError:
+        print("DEBUG ERROR: 'vsh' command not found. This script must run on a Nexus switch.")
+        return False
+    except subprocess.TimeoutExpired:
+        print("DEBUG ERROR: Ping command timed out after 15 seconds.")
         return False
     except Exception as e:
-        # Catch any other unexpected errors during the ping.
-        print(f"An unexpected error occurred during ping: {e}")
+        print(f"DEBUG ERROR: An unexpected error occurred during ping execution: {e}")
         return False
+
 
 def verify_interface_status(interface, timeout=60):
     """
