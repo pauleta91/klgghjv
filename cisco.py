@@ -2,13 +2,15 @@
 import time
 import argparse
 try:
-    # On Cisco Nexus, the 'cisco' module provides the 'vsh' function to run commands.
-    from cisco import vsh
+    # On Cisco Nexus, the 'cisco' module provides the 'cli' function to run commands.
+    import cisco
+    # Define a consistent function name that maps to the Cisco library
+    execute_command_on_switch = cisco.cli
 except ImportError:
-    # Mock the vsh function for local testing
-    print("Warning: 'cisco' module or 'vsh' function not found. Using mock for local testing.")
-    def vsh(command):
-        print(f"Executing command: '{command}'")
+    # Mock the function for local testing if the cisco module is not found
+    print("Warning: 'cisco' module not found. Using mock function for local testing.")
+    def execute_command_on_switch(command):
+        print(f"MOCK Executing: '{command}'")
         if "ping" in command and "1.1.1.1" in command:
             return "!!!!!\n--- 1.1.1.1 ping statistics ---\n5 packets transmitted, 5 packets received, 0.00% packet loss"
         if "show interface" in command and "status" in command:
@@ -18,9 +20,10 @@ except ImportError:
 def execute_command(command):
     """Executes a CLI command and returns the output."""
     print(f"Executing: {command}")
-    output = vsh(command)
+    output = execute_command_on_switch(command)
     time.sleep(1)  # Give the system a moment to process the command
     return output
+
 
 
 def bounce_interface(interface):
