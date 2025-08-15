@@ -1,89 +1,61 @@
+#!/usr/bin/env python3
 import time
-import argparse
-import json
-from Cli import cli
+import sys
+from cli import cli  # EOS Python module to run CLI commands
 
-def run_cmd(cmd):
-    try:
-        return cli(cmd)
-    except Exception as e:
-        print(f"cmd failed: {e}")
-        return ""
+def get_user_input():
+    interface = input("Enter interface: ").strip()
+    ip = input("Enter IP address to ping: ").strip()
+    vrf = input("Enter VRF (default if none): ").strip() or "default"
+    return interface, ip, vrf
 
-def no_shut(interface):
-    print(f"no-shut {interface}")
-    run_cmd(f"configure terminal")
-    run_cmd(f"interface {interface}")
-    run_cmd("no shutdown")
+def flap_interface(interface):
+    """Shut and no shut the interface."""
+    cli(f"enable")
+    cli(f"configure terminal")
+    cli(f"interface {interface}")
+    cli(f"shutdown")
+    cli(f"no shutdown")
 
-def shut(interface):
-    print(f"shut {interface}")
-    run_cmd(f"configure terminal")
-    run_cmd(f"interface {interface}")
-    run_cmd("shutdown")
-
-def bounce(interface):
-    shut(interface)
-    no_shut(interface)
-
-def ping(ip, vrf):
-    try:
-        if vrf.lower() != "default":
-            out = run_cmd(f"ping vrf {vrf} {ip} count 1")
-        else:
-            out = run_cmd(f"ping {ip} count 1")
-        return "1 packets received" in out or "1 received" in out
-    except Exception as e:
-        print(f"ping blew up: {e}")
-        return False
-
-def int_up(interface, timeout=60):
-    start = time.time()
-    while time.time() - start < timeout:
-        try:
-            out = run_cmd(f"show interfaces {interface} status | json")
-            data = json.loads(out)
-            if data.get('interfaceStatuses', {}).get(interface, {}).get('lineProtocolStatus') == "up":
-                return True
-        except Exception as e:
-            print(f"status check failed: {e}")
+def wait_until_connected(interface):
+    """Poll every second until interface is connected."""
+    while True:
+        output = cli(f"show interfaces {interface} | include line protocol|is up")
+        # Check for "line protocol is up" indicating connected
+        if "line protocol is up" in output:
+            return
         time.sleep(1)
+
+def ping_ip(ip, vrf):
+    """Ping the IP in the given VRF once."""
+    cmd = f"ping {ip} vrf {vrf} repeat 1 timeout 1"
+    output = cli(cmd)
+    # Success if 'Success rate is 100 percent' appears in output
+    if "Success rate is 100 percent" in output:
+        return True
     return False
 
 def main():
-    p = argparse.ArgumentParser()
-    p.add_argument("interface")
-    p.add_argument("ip_address")
-    p.add_argument("vrf")
-    args = p.parse_args()
-
-    cycle = 0
-    try:
-        while True:
-            cycle += 1
-            print(f"== cycle {cycle} ==")
-            bounce(args.interface)
-
-            if not int_up(args.interface):
-                print("int stayed dead. quitting.")
-                break
-
-            for i in range(3):
-                if ping(args.ip_address, args.vrf):
-                    print("ping works")
-                    break
-                print("ping failed. retrying...")
-                time.sleep(2)
+    interface, ip, vrf = get_user_input()
+    
+    while True:
+        success = False
+        for attempt in range(1, 4):  # Up to 3 attempts
+            print(f"\nFlap attempt {attempt}...")
+            flap_interface(interface)
+            print("Waiting for interface to become connected...")
+            wait_until_connected(interface)
+            print(f"Pinging {ip} in VRF {vrf}...")
+            if ping_ip(ip, vrf):
+                print("Ping successful! Repeating process...\n")
+                success = True
+                break  # Success, go back to start of while loop
             else:
-                print("ping hopeless after 3 tries. quitting.")
-                break
-
-    except KeyboardInterrupt:
-        print("killed")
-    finally:
-        if not int_up(args.interface, 2):
-            no_shut(args.interface)
-        print("done")
+                print(f"Ping failed on attempt {attempt}. Retrying...")
+        
+        if not success:
+            print("Ping failed after 3 attempts. Exiting script.")
+            sys.exit(1)
 
 if __name__ == "__main__":
     main()
