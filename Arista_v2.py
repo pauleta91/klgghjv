@@ -5,45 +5,34 @@ import argparse
 import subprocess
 
 def run_cli(command):
-    """Run a single EOS CLI command and return stdout."""
-    result = subprocess.run(["Cli", "-p15" "-c", command], capture_output=True, text=True)
+    payload = (command.replace(";", r"\n"))
+    cmd = f"Cli -p15 -c $'{payload}'"
+    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
     return result.stdout
 
 def shut(interface):
-    """Shut the interface using separate Cli calls."""
-    run_cli(f"interface {interface}")
-    run_cli("shutdown")
+    run_cli(f"conf;interface {interface};shutdown")
 
 def no_shut(interface):
-    """No shutdown the interface using separate Cli calls."""
-    run_cli(f"interface {interface}")
-    run_cli("no shutdown")
+    run_cli(f"conf;interface {interface};no shutdown")
 
 def bounce(interface):
-    """Shut and no-shut the interface."""
     shut(interface)
     no_shut(interface)
 
-def int_up(interface):
-    """Wait until interface shows 'line protocol is up'."""
-    while True:
-        output = run_cli(f"show interfaces {interface} | include line protocol|is up")
-        if "line protocol is up" in output:
+def int_up(interface, timeout=30):
+    start = time.time()
+    while time.time() - start < timeout:
+        output = run_cli(f"show interfaces {interface} | include connected")
+        if "connected" in output:
             return True
         time.sleep(1)
-
-def ping(ip, vrf):
-    """Ping IP once in the specified VRF from management1."""
-    
-    output = run_cli(f'ping {ip} vrf {vrf} count 1 source management1')
-    print("----- Ping Output Start -----")
-    print(output)
-    print("------ Ping Output End ------")
-    
-    # Simple check: if any packets received, success
-    if "1 received" in output:
-        return True
     return False
+def ping(ip, vrf):
+    output = run_cli(f'ping {ip} vrf {vrf} count 2 source management1')
+    if "0 received" in output:
+        return False 
+    return True
 
 def main():
     parser = argparse.ArgumentParser()
