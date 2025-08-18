@@ -82,24 +82,17 @@ def main():
         while True:
             cycle += 1
             logger.info(f"Starting cycle {cycle}")
-            success = False
 
-            for attempt in range(1, 4):
-                logger.info(f"Flap attempt {attempt} of 3")
-                bounce(args.interface)
-
-                int_up(args.interface)
-
-                if ping(args.ip_address, args.vrf):
-                    logger.info(f"Cycle {cycle} completed successfully after {attempt} attempts")
-                    success = True
-                    break
-                else:
-                    logger.warning(f"Ping failed on attempt {attempt}")
-
-            if not success:
-                logger.error("Ping failed after 3 attempts. Exiting script.")
-                sys.exit(1)
+            logger.info(f"Bouncing interface")
+            bounce(args.interface)
+            
+            int_up(args.interface)
+            
+            while not ping(args.ip_address, args.vrf):
+                logger.info("Ping failed, waiting 10 seconds before retry...")
+                time.sleep(10)
+            
+            logger.info(f"Cycle {cycle} completed successfully")
 
     except KeyboardInterrupt:
         logger.info("Script interrupted by user. Exiting.")
