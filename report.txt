@@ -1,39 +1,48 @@
+
+
+Subject: Attempt to Reproduce Malfunction – SR 699539421
+
 Hello,
- 
- This mail documents the attempt made to reproduce the malfunction found during multiple session of switches upgrades on [DATE]. To the attempts a script was used to trigger a link failure on the [SWITCH_MODEL] Nexus switches by implementing systematic interface bouncing with connectivity validation, also reboots have been done and a Downgrade/upgrade in a desperate attempt to recreate the malfunction. 
- 
- TLDR: It didn't work, failed to reproduce the malfunction previously found.
- 
- Please refer to the case SR [CASE_NUMBER] to see the malfunction found during the upgrades.
- 
- Script functionality:
- 
- 1° Interface bouncing : Shut/No shut, wait [WAIT_TIME] sec to not trigger Link flapping
- 2° Monitor Interface Status : Waits till the interface to be Connected
- 3° Pings [TARGET_IP] through the interface to check if the malfunction is present 
- 4° Repeats indefinitly 
- 
- Testing:
- 
- Phase 1 : LAB 
- The Lab test was conducted with [NUMBER] different switches ([SWITCH_IDS]) and the script completed over [LAB_CYCLES] cycles without tigger the malfunction. 
- 
- Phase 2 : Prod
- The script was lunched in switch [PROD_SWITCH_ID] were the malfunction was detected during an upgrade, it completed over [PROD_CYCLES] cycles without trigger the malfunction.
- 
- Phase 3: Prod Reboots and (Re)upgrade 
- 
- A couple of reboots and a Down/Upgrade was performed. The upgrade was from version [FROM_VERSION] to [TO_VERSION] in the switch same switch of phase 2 without trigger the malfunction. 
- 
- 
- Conclusion:
- 
- In a specific environment with specific switches with a huge some of Shut/No shut it wasn't possible to reproduce the malfunction, the tests were inconclusive due to the lack of results, lack of knowledge about the trigger of the malfunction.
- 
- 
- If you have any feedback about how to reproduce the malfunction please don't hesitate to contact me even if it's a long shoot I'm happy to try any ideas, the stability of our network depends on it.
- 
- Kind Regards
-[YOUR_NAME]
-[YOUR_TITLE]
-[CONTACT_INFO]
+
+This mail documents the attempts made to reproduce the malfunction observed during multiple switch upgrade sessions.
+
+A script was developed to simulate link failures on Nexus switches by systematically bouncing interfaces and validating connectivity. Additional reboots and downgrade/upgrade procedures were also performed in an effort to recreate the malfunction.
+
+Summary:
+Despite extensive testing, the malfunction could not be reproduced.
+
+Reference:
+Please refer to case SR 699539421 for details of the malfunction encountered during the upgrades.
+
+Script Functionality:
+
+1. Interface bouncing (shut/no shut) with a 20s delay to avoid link flapping
+
+
+2. Monitoring interface status until it shows Connected
+
+
+3. Pinging an IP through the interface to check for malfunction
+
+
+4. Repeating the above steps indefinitely
+
+
+
+Testing Results:
+
+Phase 1: Lab – Conducted on two different switches, script ran over 30k cycles without reproducing the malfunction.
+
+Phase 2: Production – Ran on a switch where the malfunction was previously observed during an upgrade, completed over 5k cycles with no issues triggered.
+
+Phase 3: Production Reboots & Upgrade/Downgrade – Multiple reboots and a down/upgrade were performed on the same switch (Phase 2) without triggering the malfunction.
+
+
+Conclusion:
+Across lab and production environments, even with extensive interface bouncing and upgrade/downgrade testing, the malfunction could not be reproduced. The tests remain inconclusive due to the lack of identifiable triggers.
+
+If you have any suggestions or hypotheses about possible triggers, please let me know. I am happy to test any ideas—ensuring network stability is our top priority.
+
+Kind regards,
+[Your Name]
+
